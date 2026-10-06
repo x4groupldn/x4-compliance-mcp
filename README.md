@@ -111,6 +111,25 @@ added cleanly.
 | `amiqus_get_client_forms` | to port |
 | `amiqus_create_record` | **out of scope** - writes excluded from v1 |
 
+### Composite tools
+
+Added because the daily question cost 1 + N calls through the passthrough
+tools. `amiqus_list_records` reports "0 of 2 complete" but every `steps[].title`
+and `steps[].status` comes back null, so document names only appear via
+`/records/{id}/steps`, one record at a time.
+
+| Tool | What it answers |
+|---|---|
+| `amiqus_chase_list` | Everyone outstanding, with the real names of the documents they still owe, days waiting, days to expiry, ordered by urgency. One call instead of 23. |
+| `amiqus_check_status` | Given emails (normally from Seven20), each person's gate state: cleared, outstanding with named missing items, or no record. Returns an explicit `not_found` list. |
+
+Both fan out server-side at a concurrency of 5, and isolate per-record errors so
+one unreadable record cannot take down the whole list. Amiqus rate limits, and
+this function has 30 seconds.
+
+The passthrough tools are unchanged. These are additive: ad-hoc questions still
+work exactly as before.
+
 All list responses are capped at 50 (`MAX_LIST`) and carry an insight-level
 note. Amiqus holds passport images, addresses and AML results; no tool here is
 allowed to become a bulk-extraction endpoint. That cap is inherited from the

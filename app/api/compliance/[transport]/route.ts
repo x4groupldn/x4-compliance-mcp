@@ -35,6 +35,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { timingSafeEqual } from "node:crypto";
 import { registerAmiqusTools } from "../../../../lib/tools";
+import { registerChaseTools } from "../../../../lib/chase";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -43,9 +44,10 @@ export const maxDuration = 30;
 const handler = createMcpHandler(
   (server) => {
     registerAmiqusTools(server);
+    registerChaseTools(server);
   },
   {
-    serverInfo: { name: "x4-compliance", version: "0.2.0" },
+    serverInfo: { name: "x4-compliance", version: "0.3.0" },
     verboseLogs: false,
   },
 );

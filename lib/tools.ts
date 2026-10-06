@@ -29,6 +29,7 @@ import {
   MAX_LIST,
   INSIGHT_NOTE,
 } from "./amiqus";
+import { fetchRecordItems } from "./chase";
 
 type Json = Record<string, any>;
 
@@ -205,8 +206,6 @@ export function registerAmiqusTools(server: any) {
     },
   );
 
-  const DONE_ITEM_STATES = new Set(["complete", "accepted", "passed", "reviewed", "clear"]);
-
   server.registerTool(
     "amiqus_get_record_items",
     {
@@ -214,58 +213,15 @@ export function registerAmiqusTools(server: any) {
       description:
         "For one record, list every required item (checks + documents) by real " +
         "name with whether it has been received or is still outstanding, plus " +
-        "candidate-facing instructions. Powers the outstanding-documents view.",
+        "candidate-facing instructions. For the whole outstanding list at once, " +
+        "use amiqus_chase_list instead of calling this per person.",
       inputSchema: z.object({
         record_id: z.string().describe("The Amiqus record id."),
       }),
     },
     async ({ record_id }: { record_id: string }) => {
-      const payload = await amiqusGet<Json>(
-        `/records/${encodeURIComponent(record_id)}/steps`,
-        { expand: "check,document,form", per_page: 100 },
-      );
-      const items = unwrapList(payload)
-        .filter((st: any) => st && typeof st === "object")
-        .map((st: Json) => {
-          const stepType: string = st.type ?? "";
-          const nestedRaw = st.document ?? st.check ?? st.form ?? {};
-          const nested: Json = nestedRaw && typeof nestedRaw === "object" ? nestedRaw : {};
-          const tail = stepType.split(".").pop() ?? "";
-          const name =
-            nested.name ||
-            tail.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-          const nstatus: string | null = nested.status ?? null;
-          const completedAt = st.completed_at ?? nested.completed_at ?? null;
-          const outstanding =
-            !completedAt && !DONE_ITEM_STATES.has((nstatus ?? "").toLowerCase());
-          const kind = stepType.startsWith("check")
-            ? "check"
-            : stepType === "form"
-              ? "form"
-              : "document";
-          return {
-            name,
-            kind,
-            type: stepType,
-            status: nstatus,
-            completed_at: completedAt,
-            outstanding,
-            instructions:
-              nested.config && typeof nested.config === "object"
-                ? nested.config.instructions
-                : null,
-          };
-        });
-      const total = items.length;
-      const received = items.filter((i) => !i.outstanding).length;
-      return json({
-        record_id: asInt(record_id),
-        total,
-        received,
-        outstanding: total - received,
-        all_received: total > 0 && received === total,
-        items,
-      });
+      const resolved = await fetchRecordItems(record_id);
+      return json({ record_id: asInt(record_id), ...resolved });
     },
   );
 
