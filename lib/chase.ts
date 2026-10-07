@@ -26,6 +26,7 @@ import {
   emailKey,
   daysSince,
   daysUntil,
+  flattenName,
   MAX_LIST,
 } from "./amiqus";
 
@@ -164,10 +165,11 @@ export function registerChaseTools(server: any) {
       const rows = await mapLimit(records, 5, async (r: Json) => {
         const base = {
           record_id: r.id,
-          name: r.client?.name ?? null,
+          name: flattenName(r.client?.name, r.client),
           email: r.client?.email ?? null,
           email_key: emailKey(r.client?.email),
           created_at: r.created_at,
+          expired_at: r.expired_at,
           days_outstanding: daysSince(r.created_at),
           days_to_expiry: daysUntil(r.expired_at),
           urgency: urgencyOf(daysUntil(r.expired_at)),
@@ -180,6 +182,11 @@ export function registerChaseTools(server: any) {
             missing: resolved.items.filter((i) => i.outstanding).map((i) => i.name),
             items_total: resolved.total,
             items_received: resolved.received,
+            // Full item objects as well as the name lists above: the chase
+            // dashboard needs kind and candidate-facing instructions, and these
+            // were already fetched, so discarding them just forced a second
+            // round of per-record calls to get them back.
+            items: resolved.items,
           };
         } catch (e: any) {
           return { ...base, error: String(e?.message ?? e) };

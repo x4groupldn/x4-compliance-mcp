@@ -28,6 +28,7 @@ import {
   daysUntil,
   MAX_LIST,
   INSIGHT_NOTE,
+  flattenName,
 } from "./amiqus";
 import { fetchRecordItems } from "./chase";
 
@@ -49,17 +50,9 @@ const asInt = (v: unknown) => {
  *  lowercasing the Seven20 join depends on. */
 function clientSummary(c: Json | null | undefined): Json | null {
   if (!c || typeof c !== "object") return (c as any) ?? null;
-  let name: any = c.name;
-  if (name && typeof name === "object") {
-    name =
-      name.name ||
-      name.full_name ||
-      `${name.first_name ?? ""} ${name.last_name ?? ""}`.trim();
-  }
-  if (!name) name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim();
   return {
     id: c.id,
-    name: name || null,
+    name: flattenName(c.name, c),
     email: c.email,
     email_key: emailKey(c.email),
     reference: c.reference,

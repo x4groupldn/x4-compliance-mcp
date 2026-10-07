@@ -121,3 +121,21 @@ export function stripNulls<T>(value: T): T {
   }
   return value;
 }
+
+/** Amiqus returns `name` as a plain string on some endpoints and a name OBJECT
+ *  on others ({first_name, last_name, full_name, complete_name, ...}). Shared
+ *  so no caller ends up embedding the whole object in its output, which is both
+ *  unusable downstream and a chunk of wasted payload. */
+export function flattenName(name: any, fallback?: { first_name?: string; last_name?: string }): string | null {
+  if (typeof name === "string") return name.trim() || null;
+  if (name && typeof name === "object") {
+    const n =
+      name.name ||
+      name.full_name ||
+      name.complete_name ||
+      `${name.first_name ?? ""} ${name.last_name ?? ""}`.trim();
+    if (n) return n;
+  }
+  const f = `${fallback?.first_name ?? ""} ${fallback?.last_name ?? ""}`.trim();
+  return f || null;
+}
