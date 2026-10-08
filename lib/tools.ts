@@ -129,8 +129,10 @@ export function registerAmiqusTools(server: any) {
     {
       title: "Search Amiqus clients",
       description:
-        "Find people (clients) in Amiqus by name or email. Returns id, name, " +
-        "email and reference. Use to locate a contractor before checking status.",
+        "Find people in Amiqus by name or email. Lower level: for 'is Jane " +
+        "verified' or 'what is Jane missing' use amiqus_person_status instead, " +
+        "which does the lookup and the status in one call. Use this only to " +
+        "disambiguate a name or to confirm somebody exists.",
       inputSchema: z.object({
         query: z.string().describe("Name or email to search for."),
         limit: z.number().int().optional().describe("Max results (capped at 50)."),
@@ -151,9 +153,11 @@ export function registerAmiqusTools(server: any) {
     {
       title: "List Amiqus verification records",
       description:
-        "List verification records across the team, optionally filtered by " +
-        "status (pending, completed, expired), assignee or creator. Use for " +
-        "onboarding chase lists. Insight-level summaries only, capped at 50.",
+        "List verification records across the team, filtered by status (pending, " +
+        "completed, expired), assignee or creator. Lower level: for 'who still " +
+        "has outstanding checks' use amiqus_chase_list, which also resolves the " +
+        "document names. This returns counts only, not what is missing. " +
+        "Insight-level summaries, capped at 50.",
       inputSchema: z.object({
         status: z.string().optional().describe("Filter by record status, e.g. 'pending'."),
         assignee: z.string().optional().describe("Filter by assignee user id."),
@@ -223,8 +227,9 @@ export function registerAmiqusTools(server: any) {
     {
       title: "List one client's records",
       description:
-        "List every verification record belonging to one Amiqus client. Use " +
-        "after amiqus_search_clients to see a contractor's onboarding history.",
+        "Every verification record belonging to one Amiqus client, oldest to " +
+        "newest. Use for 'what is X's onboarding history'. For their CURRENT " +
+        "status use amiqus_person_status instead.",
       inputSchema: z.object({
         client_id: z.string().describe("The Amiqus client id."),
       }),

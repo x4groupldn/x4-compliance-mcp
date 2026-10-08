@@ -221,6 +221,96 @@ export function registerChaseTools(server: any) {
   );
 
   server.registerTool(
+    "amiqus_person_status",
+    {
+      title: "Onboarding status for one person",
+      description:
+        "Status for ONE named person in plain English: 'is Jane Smith verified', " +
+        "'has Bob cleared his checks', 'what is X still waiting on', 'where is " +
+        "Y up to with onboarding'. Give it a name or an email and it returns " +
+        "whether they are cleared, what they still owe by document name, how " +
+        "long it has been outstanding and when the request expires. Use this " +
+        "rather than chaining amiqus_search_clients, amiqus_list_client_records " +
+        "and amiqus_get_record_items. If the name matches more than one person " +
+        "it returns the candidates and asks rather than guessing.",
+      inputSchema: z.object({
+        query: z.string().describe("A person's name or email address."),
+      }),
+    },
+    async ({ query }: { query: string }) => {
+      const payload = await amiqusGet<Json>("/clients", { search: query, per_page: 10 });
+      const matches = unwrapList(payload).filter((c: any) => c && typeof c === "object");
+
+      if (!matches.length) {
+        return json({
+          query,
+          state: "not_found",
+          note: "Nobody in Amiqus matches that name or email. They may not have been onboarded yet.",
+        });
+      }
+
+      // A name search is fine when a human has named the person - they can
+      // confirm. What is never fine is picking one silently: "Todd Johnson"
+      // matches 17 Seven20 contacts, and the equivalent collision here would
+      // mean reporting one person's AML status as another's. Ask instead.
+      const exactEmail = matches.find((c: Json) => emailKey(c.email) === emailKey(query));
+      const chosen = exactEmail ?? (matches.length === 1 ? matches[0] : null);
+      if (!chosen) {
+        return json({
+          query,
+          state: "ambiguous",
+          note: "More than one person matches. Ask which one; do not guess.",
+          candidates: matches.slice(0, 10).map((c: Json) => ({
+            id: c.id,
+            name: flattenName(c.name, c),
+            email: c.email,
+          })),
+        });
+      }
+
+      const recPayload = await amiqusGet<Json>(
+        `/clients/${encodeURIComponent(String(chosen.id))}/records`,
+      );
+      const records = unwrapList(recPayload);
+      if (!records.length) {
+        return json({
+          query,
+          client_id: chosen.id,
+          name: flattenName(chosen.name, chosen),
+          state: "no_record",
+          note: "This person exists in Amiqus but has no onboarding record.",
+        });
+      }
+
+      // Newest first: an older completed record does not clear a newer
+      // outstanding one.
+      const sorted = records.sort(
+        (a: Json, b: Json) => Date.parse(b.created_at ?? 0) - Date.parse(a.created_at ?? 0),
+      );
+      const latest = sorted[0];
+      const resolved = await fetchRecordItems(latest.id);
+
+      return json({
+        query,
+        client_id: chosen.id,
+        name: flattenName(chosen.name, chosen),
+        state: resolved.all_received ? "cleared" : "outstanding",
+        record_id: latest.id,
+        record_status: latest.status,
+        created_at: latest.created_at,
+        days_outstanding: daysSince(latest.created_at),
+        days_to_expiry: daysUntil(latest.expired_at),
+        urgency: urgencyOf(daysUntil(latest.expired_at)),
+        received: resolved.items.filter((i) => !i.outstanding).map((i) => i.name),
+        missing: resolved.items.filter((i) => i.outstanding).map((i) => i.name),
+        items: resolved.items,
+        earlier_records: sorted.length - 1,
+        note: "Most recent record only. earlier_records counts older ones; use amiqus_list_client_records for the full history.",
+      });
+    },
+  );
+
+  server.registerTool(
     "amiqus_check_status",
     {
       title: "Check onboarding status for a list of people",

@@ -111,6 +111,24 @@ added cleanly.
 | `amiqus_get_client_forms` | to port |
 | `amiqus_create_record` | **out of scope** - writes excluded from v1 |
 
+### No plugin, no skills
+
+Everything is in the connector. Add the URL and ask in plain English; there is
+nothing to install and nothing to keep in sync. That only works if the tool
+DESCRIPTIONS carry the routing, so treat them as the user interface and not as
+documentation. A skill here would just be a workaround for a weak description.
+
+Three front doors cover what Compliance actually asks:
+
+| Question | Tool |
+|---|---|
+| "who still has outstanding checks?" | `amiqus_chase_list` |
+| "is Jane verified / what is she missing?" | `amiqus_person_status` |
+| "these people start Monday, who has cleared?" | `amiqus_check_status` |
+
+The remaining tools are lower level and their descriptions point back at these,
+so a plain question lands on one call rather than a chain.
+
 ### Composite tools
 
 Added because the daily question cost 1 + N calls through the passthrough
